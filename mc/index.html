@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Monte Carlo en realidad aumentada · Cálculo III</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Realidad aumentada del programa cap6_monte_carlo.m del libro Cálculo III (FES Acatlán, UNAM): la simulación aparece sobre el código impreso.">
+<style>
+/* Paleta del libro (estilo F): amarillo, negro y rojo. Pantalla de inicio clara; en la vista de
+   realidad aumentada, paneles oscuros translúcidos sobre la imagen de la cámara. */
+:root {
+  --bg: #fffdf7; --ink: #141414; --muted: #5b5a55; --line: #e2ddd0;
+  --yellow: #ffc21a; --red: #c21f1a; --blue: #1f4e9c;
+  --hud: rgba(14, 14, 13, 0.78); --hud-ink: #f6f3ea; --hud-muted: #c9c4b6; --hud-red: #ff6b5e;
+  --sans: "Source Sans 3", "Source Sans Pro", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "Source Code Pro", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #121211; --ink: #f2efe6; --muted: #aaa69a; --line: #34322d; --red: #ff7a6e; --blue: #8fb2f0; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 17px/1.5 var(--sans); -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+button { font: 700 16px/1 var(--sans); border-radius: 999px; padding: 12px 18px; cursor: pointer; border: 2px solid currentColor; background: transparent; color: inherit; }
+button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+/* ---------- inicio ---------- */
+.banda { background: var(--yellow); color: #141414; padding: calc(env(safe-area-inset-top, 0px) + 18px) 18px 16px; }
+.ceja { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.banda h1 { margin: 6px 0 2px; font-size: 34px; line-height: 1.02; letter-spacing: -.01em; }
+.banda p.sub { margin: 0; font-weight: 600; }
+.inicio { max-width: 640px; margin: 0 auto; padding: 18px 18px calc(env(safe-area-inset-bottom, 0px) + 28px); display: grid; gap: 18px; }
+.pasos { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.principal { background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: 18px; padding: 15px 22px; justify-self: start; }
+.aviso { margin: 0; font-size: 15px; color: var(--muted); }
+.error { margin: 0; color: var(--red); font-weight: 600; }
+.marcador { display: grid; gap: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+.marcador img { width: min(100%, 300px); height: auto; justify-self: center; background: #fff; padding: 10px; border-radius: 4px; }
+.marcador p { margin: 0; font-size: 15px; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); }
+
+/* ---------- vista de realidad aumentada ---------- */
+#ra { position: fixed; inset: 0; z-index: 10; pointer-events: none; color: var(--hud-ink); }
+#ra .arriba { position: absolute; left: 0; right: 0; top: 0; padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.chip { background: var(--hud); border-radius: 999px; padding: 8px 14px; font-size: 15px; font-weight: 700; pointer-events: auto; }
+.chip.ok { background: rgba(255, 194, 26, .92); color: #141414; }
+#ra .abajo { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 12px calc(env(safe-area-inset-bottom, 0px) + 12px); }
+.panel { background: var(--hud); border-radius: 14px; padding: 12px 14px; display: grid; gap: 10px; pointer-events: auto; max-width: 560px; margin: 0 auto; }
+.cifras { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; gap: 6px 14px; align-items: end; }
+.cifras div { min-width: 0; }
+.cifras small { display: block; font-size: 12px; color: var(--hud-muted); line-height: 1.2; }
+.cifras b { display: block; font: 600 clamp(14px, 4.3vw, 17px)/1.2 var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cifras .v b { font-size: clamp(19px, 6vw, 24px); color: var(--hud-red); }
+.fila { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.panel button { color: var(--hud-ink); padding: 10px 14px; font-size: 15px; }
+.panel button.lleno { background: var(--yellow); color: #141414; border-color: var(--yellow); }
+.panel .chips button { font-family: var(--mono); padding: 8px 11px; }
+.panel .chips button[aria-pressed="true"] { background: var(--hud-ink); color: #141414; border-color: var(--hud-ink); }
+.panel label { display: inline-flex; gap: 8px; align-items: center; font-weight: 700; font-size: 15px; }
+.panel label input { width: 20px; height: 20px; }
+.nota-ra { margin: 0; font-size: 13px; color: var(--hud-muted); }
+/* La imagen de la cámara llena la pantalla (se recorta lo que sobra) y el lienzo 3D se coloca
+   exactamente sobre la parte de la imagen en la que se busca el código. */
+#capa { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: #000; }
+#capa video, #capa canvas { position: absolute; margin: 0; }
+#capa video { z-index: 0; }
+#capa canvas { z-index: 1; }
+body.en-ra { overflow: hidden; background: #000; }
+/* Teléfono acostado: el panel pasa a la esquina inferior derecha y se compacta. */
+@media (max-height: 500px) and (orientation: landscape) {
+  #ra .abajo { left: auto; width: min(380px, 48vw); }
+  .panel { gap: 8px; padding: 10px 12px; }
+  .nota-ra { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="inicio">
+  <header class="banda">
+    <p class="ceja">Cálculo III · Sección 6.6 · Ejemplo 6.11</p>
+    <h1>Monte Carlo del cono de helado</h1>
+    <p class="sub">Realidad aumentada</p>
+  </header>
+  <main class="inicio">
+    <ol class="pasos">
+      <li>Toque «Iniciar la cámara» y permita el acceso.</li>
+      <li>Apunte al código QR con marco negro del libro, a unos 25 cm.</li>
+      <li>El cono de helado aparece sobre el código. Toque «Correr» y los puntos al azar empiezan a caer; los que quedan dentro del sólido se pintan de rojo y su proporción estima el volumen π/8 ≈ 0.392699.</li>
+    </ol>
+    <button class="principal" id="b-iniciar" type="button">Iniciar la cámara</button>
+    <p class="error" id="error" hidden></p>
+    <p class="aviso">La cámara sólo se usa en su teléfono: no se graba ni se envía nada.</p>
+    <section class="marcador" aria-labelledby="t-marcador">
+      <p id="t-marcador"><b>¿No tiene el libro a la mano?</b> Abra esta página en la computadora y apunte el celular a este código, o imprima la <a href="../descargas/Tarjeta_RA_Monte_Carlo.pdf">tarjeta de prueba (PDF)</a>.</p>
+      <img src="marcador.png" width="1184" height="1184" alt="Código QR con marco negro: abre esta página y sirve de base para la realidad aumentada.">
+    </section>
+    <footer>Programa <code>cap6_monte_carlo.m</code> del libro <i>Cálculo III. Funciones reales de un vector</i>, de Jairo Olguín Roque (FES Acatlán, UNAM). La simulación usa el generador de MATLAB con <code>rng(2027)</code> y da las cifras de la Tabla 6.1. Prototipo de prueba. D. R.©, 2026, UNAM - CC BY-NC-ND.</footer>
+  </main>
+</div>
+
+<div id="capa" hidden></div>
+
+<div id="ra" hidden>
+  <div class="arriba">
+    <span class="chip" id="estado" role="status">Busque el código</span>
+    <button class="chip" id="b-salir" type="button">Salir</button>
+  </div>
+  <div class="abajo">
+    <div class="panel">
+      <div class="cifras" aria-live="off">
+        <div class="v"><small>Estimación de V(E)</small><b id="d-v">—</b></div>
+        <div><small>Puntos</small><b id="d-n">—</b></div>
+        <div><small>Error |V − π/8|</small><b id="d-err">—</b></div>
+      </div>
+      <div class="fila">
+        <button class="lleno" id="b-correr" type="button">Correr</button>
+        <button id="b-pausa" type="button">Pausa</button>
+        <label for="c-dentro"><input id="c-dentro" type="checkbox"> Sólo los de E</label>
+      </div>
+      <div class="fila chips" role="group" aria-label="Número de puntos">
+        <button type="button" data-k="0" aria-pressed="true">10³</button>
+        <button type="button" data-k="1" aria-pressed="false">10⁴</button>
+        <button type="button" data-k="2" aria-pressed="false">10⁵</button>
+        <button type="button" data-k="3" aria-pressed="false">10⁶</button>
+      </div>
+      <p class="nota-ra" id="nota">Semilla 2027, como en el libro. Se dibujan hasta 20 000 puntos; la cuenta usa los N.</p>
+    </div>
+  </div>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script src="../lib/ar-threex.js"></script>
+<script>
+(function () {
+  "use strict";
+  // ------------------------------------------------ generador de MATLAB: rng(s) + rand (MT19937, res53)
+  function MT(semilla) {
+    this.mt = new Uint32Array(624); this.mti = 624;
+    var mt = this.mt; mt[0] = semilla >>> 0;
+    for (var i = 1; i < 624; i++) { var p = mt[i - 1] ^ (mt[i - 1] >>> 30); mt[i] = (Math.imul(1812433253, p) + i) >>> 0; }
+  }
+  MT.prototype.int32 = function () {
+    var mt = this.mt, y, kk;
+    if (this.mti >= 624) {
+      for (kk = 0; kk < 227; kk++) { y = (mt[kk] & 0x80000000) | (mt[kk + 1] & 0x7fffffff); mt[kk] = mt[kk + 397] ^ (y >>> 1) ^ ((y & 1) ? 0x9908b0df : 0); }
+      for (; kk < 623; kk++) { y = (mt[kk] & 0x80000000) | (mt[kk + 1] & 0x7fffffff); mt[kk] = mt[kk - 227] ^ (y >>> 1) ^ ((y & 1) ? 0x9908b0df : 0); }
+      y = (mt[623] & 0x80000000) | (mt[0] & 0x7fffffff); mt[623] = mt[396] ^ (y >>> 1) ^ ((y & 1) ? 0x9908b0df : 0);
+      this.mti = 0;
+    }
+    y = mt[this.mti++];
+    y ^= (y >>> 11); y ^= (y << 7) & 0x9d2c5680; y ^= (y << 15) & 0xefc60000; y ^= (y >>> 18);
+    return y >>> 0;
+  };
+  MT.prototype.rand = function () { var a = this.int32() >>> 5, b = this.int32() >>> 6; return (a * 67108864 + b) * (1.0 / 9007199254740992); };
+
+  var CORRIDAS = [1e3, 1e4, 1e5, 1e6], PI8 = Math.PI / 8, SEMILLA = 2027, MAX_DIBUJO = 20000, DURACION = 6;
+  function bloque(k) {
+    var g = new MT(SEMILLA), saltar = 0, i;
+    for (i = 0; i < k; i++) saltar += 3 * CORRIDAS[i];
+    for (i = 0; i < saltar; i++) g.rand();
+    var N = CORRIDAS[k], b = new Float64Array(3 * N);
+    for (i = 0; i < 3 * N; i++) b[i] = g.rand();
+    return b;
+  }
+  function dentro(b, N, i) {
+    var x = b[i] - 0.5, y = b[N + i] - 0.5, z = b[2 * N + i];
+    return (z >= Math.sqrt(x * x + y * y)) && (x * x + y * y + z * z <= z);
+  }
+
+  // ------------------------------------------------ interfaz
+  var el = function (id) { return document.getElementById(id); };
+  var inicio = el("inicio"), vistaRA = el("ra"), estadoChip = el("estado"), errorTxt = el("error");
+  var dV = el("d-v"), dN = el("d-n"), dErr = el("d-err");
+  var chips = Array.prototype.slice.call(document.querySelectorAll(".chips button"));
+  var fmt = new Intl.NumberFormat("es-MX");
+  var sim = { k: 0, N: 1e3, b: null, n: 0, dentro: 0, jugando: false, acumulado: 0, ultimo: 0, programa: false };
+  window.__ra = { detectado: 0, cuadros: 0, sim: sim };
+
+  // ------------------------------------------------ escena
+  var renderer, scene, camera, raiz, contenido, geoIn, geoOut, nIn = 0, nOut = 0, puntosOut;
+  var capa = el("capa"), video = null, flujo = null, contexto, listo = false;
+  // Imagen que analiza ARToolKit: siempre 640 x 480. Si el teléfono está vertical, la imagen de la
+  // cámara se gira 90° para que el código conserve su forma (no se estira).
+  var detector = document.createElement("canvas"); detector.width = 640; detector.height = 480;
+  var detCtx = detector.getContext("2d");
+  var recorte = null, vertical = false, dimVideo = "", P = null;
+  // Seguimiento del código. ARToolKit también reconoce como «marcadores» los cuadros de posición del
+  // QR (con confianza de 0.6 a 0.65); por eso, en cada imagen se toma sólo el candidato de mayor área
+  // con confianza de al menos 0.7, y la pose se suaviza.
+  var patronId = null, candidatos = [], ultimoAnalisis = 0, ultimaDeteccion = -1e9, hayPose = false;
+  var CONF_MIN = 0.7, MANTENER_MS = 350;
+
+  function superficie(nu, nv, f) {
+    var pos = [], idx = [], i, j;
+    for (i = 0; i <= nu; i++) for (j = 0; j <= nv; j++) { var p = f(i / nu, j / nv); pos.push(p[0], p[1], p[2]); }
+    for (i = 0; i < nu; i++) for (j = 0; j < nv; j++) { var a = i * (nv + 1) + j, c = a + nv + 1; idx.push(a, c, a + 1, c, c + 1, a + 1); }
+    var g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+  function crearEscena() {
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setClearColor(0x000000, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.domElement.id = "escena";
+    capa.appendChild(renderer.domElement);
+    scene = new THREE.Scene();
+    camera = new THREE.Camera(); scene.add(camera);
+    raiz = new THREE.Group(); raiz.matrixAutoUpdate = false; raiz.visible = false; scene.add(raiz);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x666655, 1.0));
+    var luz = new THREE.DirectionalLight(0xffffff, 0.6); luz.position.set(1, 3, 2); scene.add(luz);
+
+    // Coordenadas del libro (z hacia arriba) sobre el marcador de AR.js (y hacia arriba): girar -90° en x.
+    contenido = new THREE.Group(); contenido.rotation.x = -Math.PI / 2; contenido.scale.setScalar(0.92); raiz.add(contenido);
+
+    // Base blanca sobre el código (para que los puntos se vean) y aristas del cubo [0,1]^3 trasladado.
+    var base = new THREE.Mesh(new THREE.PlaneGeometry(1.04, 1.04), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.88, depthWrite: false }));
+    base.renderOrder = -1; contenido.add(base);
+    var caja = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0x3a3a3a }));
+    caja.position.set(0, 0, 0.5); contenido.add(caja);
+    var opciones = { transparent: true, side: THREE.DoubleSide, depthWrite: false, shininess: 40 };
+    var cono = new THREE.Mesh(superficie(20, 60, function (u, v) { var s = 0.5 * u, t = 2 * Math.PI * v; return [s * Math.cos(t), s * Math.sin(t), s]; }),
+      new THREE.MeshPhongMaterial(Object.assign({ color: 0x2f6fd6, opacity: 0.45 }, opciones)));
+    var esfera = new THREE.Mesh(superficie(20, 60, function (u, v) { var f = 0.5 * Math.PI * u, t = 2 * Math.PI * v; return [0.5 * Math.sin(f) * Math.cos(t), 0.5 * Math.sin(f) * Math.sin(t), 0.5 + 0.5 * Math.cos(f)]; }),
+      new THREE.MeshPhongMaterial(Object.assign({ color: 0xffc21a, opacity: 0.42 }, opciones)));
+    cono.renderOrder = 2; esfera.renderOrder = 3; contenido.add(cono); contenido.add(esfera);
+
+    var cc = document.createElement("canvas"); cc.width = cc.height = 64;
+    var cx = cc.getContext("2d"); cx.beginPath(); cx.arc(32, 32, 29, 0, 2 * Math.PI); cx.fillStyle = "#fff"; cx.fill();
+    var circulo = new THREE.CanvasTexture(cc);
+    function nube(color, tam, opacidad) {
+      var g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(3 * MAX_DIBUJO), 3).setUsage(THREE.DynamicDrawUsage));
+      g.setDrawRange(0, 0);
+      var m = new THREE.PointsMaterial({ color: color, size: tam, sizeAttenuation: true, map: circulo, alphaTest: 0.5, transparent: opacidad < 1, opacity: opacidad, depthWrite: opacidad >= 1 });
+      var p = new THREE.Points(g, m); p.frustumCulled = false; contenido.add(p);
+      return { g: g, p: p };
+    }
+    var a = nube(0xff3b2f, 0.03, 1), o = nube(0xd8d4c8, 0.022, 0.6);
+    geoIn = a.g; geoOut = o.g; puntosOut = o.p; a.p.renderOrder = 1; o.p.renderOrder = 0;
+  }
+
+  function vaciar() { nIn = 0; nOut = 0; geoIn.setDrawRange(0, 0); geoOut.setDrawRange(0, 0); }
+  function agregar(ok, x, y, z) {
+    if (nIn + nOut >= MAX_DIBUJO) return;
+    var g = ok ? geoIn : geoOut, i = ok ? nIn++ : nOut++, a = g.attributes.position.array;
+    a[3 * i] = x; a[3 * i + 1] = y; a[3 * i + 2] = z;
+  }
+  function subir(desdeIn, desdeOut) {
+    [[geoIn, desdeIn, nIn], [geoOut, desdeOut, nOut]].forEach(function (q) {
+      var at = q[0].attributes.position;
+      if (q[2] > q[1]) { at.updateRange.offset = 3 * q[1]; at.updateRange.count = 3 * (q[2] - q[1]); at.needsUpdate = true; }
+      q[0].setDrawRange(0, q[2]);
+    });
+  }
+  function mostrar() {
+    if (!sim.n) { dV.textContent = "—"; dN.textContent = "—"; dErr.textContent = "—"; return; }
+    var V = sim.dentro / sim.n;
+    dV.textContent = V.toFixed(6); dN.textContent = fmt.format(sim.n); dErr.textContent = Math.abs(V - PI8).toFixed(4);
+  }
+  function elegir(k) {
+    sim.k = k; sim.N = CORRIDAS[k]; sim.n = 0; sim.dentro = 0; sim.b = null; sim.jugando = false; sim.acumulado = 0;
+    chips.forEach(function (b, j) { b.setAttribute("aria-pressed", j === k ? "true" : "false"); });
+    vaciar(); mostrar(); el("b-pausa").textContent = "Pausa";
+  }
+  function correr(k) {
+    elegir(k);
+    el("nota").textContent = k === 3 ? "Generando 3 000 000 de números al azar…" : "Corrida con N = " + chips[k].textContent + ".";
+    setTimeout(function () { sim.b = bloque(k); sim.jugando = true; el("nota").textContent = "Corrida con N = " + chips[k].textContent + " (semilla 2027)."; }, 30);
+  }
+  function avanzar(dt) {
+    if (!sim.jugando || !sim.b) return;
+    var N = sim.N, b = sim.b;
+    sim.acumulado += N / DURACION * dt;
+    var por = Math.floor(sim.acumulado); if (por < 1) return;
+    sim.acumulado -= por;
+    var fin = Math.min(N, sim.n + por), di = nIn, dout = nOut;
+    for (var i = sim.n; i < fin; i++) {
+      var ok = dentro(b, N, i); if (ok) sim.dentro++;
+      if (nIn + nOut < MAX_DIBUJO) agregar(ok, b[i] - 0.5, b[N + i] - 0.5, b[2 * N + i]);
+    }
+    sim.n = fin; subir(di, dout); mostrar();
+    if (fin === N) {
+      sim.jugando = false; sim.b = null;
+      el("nota").textContent = "N = " + chips[sim.k].textContent + ": estimación " + (sim.dentro / N).toFixed(6) + " (Tabla 6.1). π/8 ≈ 0.392699.";
+      if (sim.programa && sim.k < 3) setTimeout(function () { if (sim.programa) correr(sim.k + 1); }, 1200);
+      else sim.programa = false;
+    }
+  }
+
+  // ------------------------------------------------ cámara y ARToolKit (AR.js)
+  function colocar(e, x, y, w, h) { e.style.left = x + "px"; e.style.top = y + "px"; e.style.width = w + "px"; e.style.height = h + "px"; }
+  // La imagen de la cámara cubre la pantalla. De ella se toma la parte central con proporción 4:3
+  // (3:4 en vertical), que es la que analiza ARToolKit, y el lienzo 3D se coloca justo encima.
+  function ajustar() {
+    if (!video || !video.videoWidth || !renderer) return;
+    var vw = video.videoWidth, vh = video.videoHeight, W = capa.clientWidth || window.innerWidth, H = capa.clientHeight || window.innerHeight;
+    dimVideo = vw + "x" + vh; vertical = vh > vw;
+    var a = vertical ? 3 / 4 : 4 / 3, cw, ch;
+    if (vw / vh > a) { ch = vh; cw = vh * a; } else { cw = vw; ch = vw / a; }
+    recorte = { x: (vw - cw) / 2, y: (vh - ch) / 2, w: cw, h: ch };
+    var s = Math.max(W / vw, H / vh), L = (W - vw * s) / 2, T = (H - vh * s) / 2;
+    colocar(video, L, T, vw * s, vh * s);
+    renderer.setSize(Math.round(cw * s), Math.round(ch * s), false);
+    colocar(renderer.domElement, L + recorte.x * s, T + recorte.y * s, cw * s, ch * s);
+    proyeccion();
+  }
+  // En vertical, la imagen analizada está girada 90°: se gira de vuelta en la proyección.
+  function proyeccion() {
+    if (!P) return;
+    if (vertical) camera.projectionMatrix.multiplyMatrices(new THREE.Matrix4().makeRotationZ(Math.PI / 2), P);
+    else camera.projectionMatrix.copy(P);
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+  }
+  var EJES = new THREE.Matrix4().makeRotationY(Math.PI).multiply(new THREE.Matrix4().makeRotationZ(Math.PI));
+  var GIRO_X = new THREE.Matrix4().makeRotationX(Math.PI / 2), UNO = new THREE.Vector3(1, 1, 1);
+  var mTmp = new THREE.Matrix4(), pNueva = new THREE.Vector3(), qNueva = new THREE.Quaternion(), sNueva = new THREE.Vector3();
+  var pPose = new THREE.Vector3(), qPose = new THREE.Quaternion();
+  // Misma convención de ejes que AR.js: cámara de OpenGL y eje y hacia arriba sobre el código.
+  function aplicarPose(arr, ahora) {
+    mTmp.fromArray(arr).premultiply(EJES).multiply(GIRO_X);
+    mTmp.decompose(pNueva, qNueva, sNueva);
+    if (!hayPose || ahora - ultimaDeteccion > 400 || pNueva.distanceTo(pPose) > 0.8) { pPose.copy(pNueva); qPose.copy(qNueva); }
+    else { pPose.lerp(pNueva, 0.55); qPose.slerp(qNueva, 0.45); }
+    hayPose = true; ultimaDeteccion = ahora;
+    raiz.matrix.compose(pPose, qPose, UNO);
+  }
+  function analizar(ahora) {
+    if (ahora - ultimoAnalisis < 30) return;
+    ultimoAnalisis = ahora;
+    var r = recorte;
+    if (vertical) { detCtx.setTransform(0, 1, -1, 0, 640, 0); detCtx.drawImage(video, r.x, r.y, r.w, r.h, 0, 0, 480, 640); detCtx.setTransform(1, 0, 0, 1, 0, 0); }
+    else detCtx.drawImage(video, r.x, r.y, r.w, r.h, 0, 0, 640, 480);
+    candidatos = [];
+    contexto.arController.process(detector);
+    var mejor = null;
+    candidatos.forEach(function (c) { if (c.cf >= CONF_MIN && (!mejor || c.area > mejor.area)) mejor = c; });
+    window.__ra.cuadros++;
+    if (mejor) { aplicarPose(mejor.m, ahora); window.__ra.ultima = { cf: +mejor.cf.toFixed(3), area: mejor.area, n: candidatos.length }; }
+  }
+  function iniciarRA() {
+    errorTxt.hidden = true;
+    if (typeof THREE === "undefined" || typeof THREEx === "undefined") { mostrarError("No se pudieron cargar las bibliotecas de realidad aumentada. Revise la conexión y recargue la página."); return; }
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { mostrarError("Este navegador no permite usar la cámara aquí. Abra la página con https en Safari o Chrome."); return; }
+    var b = el("b-iniciar"); b.disabled = true; b.textContent = "Abriendo la cámara…";
+    try { if (!renderer) crearEscena(); } catch (e) { mostrarError("Este teléfono no pudo iniciar los gráficos 3D (WebGL)."); b.disabled = false; b.textContent = "Iniciar la cámara"; return; }
+    navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } } })
+      .then(function (s) {
+        flujo = s;
+        video = document.createElement("video");
+        video.setAttribute("playsinline", ""); video.setAttribute("muted", ""); video.setAttribute("autoplay", "");
+        video.muted = true; video.srcObject = s;
+        capa.insertBefore(video, capa.firstChild);
+        return video.play();
+      })
+      .then(function () {
+        capa.hidden = false; inicio.hidden = true; vistaRA.hidden = false; document.body.classList.add("en-ra");
+        contexto = new THREEx.ArToolkitContext({ cameraParametersUrl: "datos/camera_para.dat", detectionMode: "mono", patternRatio: 0.75, maxDetectionRate: 30, canvasWidth: 640, canvasHeight: 480 });
+        contexto.init(function () {
+          // En esta versión de ARToolKit, la estimación «continua» de la pose (parte de la del cuadro
+          // anterior) se dispara a valores enormes y ya no regresa. Se usa siempre la estimación directa.
+          var ar = contexto.arController;
+          ar.getTransMatSquareCont = function (i, ancho, previa, dst) { return ar.getTransMatSquare(i, ancho, dst); };
+          ar.addEventListener("getMarker", function (e) {
+            var d = e.data;
+            if (patronId === null || d.type !== 0 || d.marker.idPatt !== patronId) return;
+            candidatos.push({ cf: d.marker.cfPatt, area: d.marker.area, m: Array.prototype.slice.call(d.matrix) });
+          });
+          ar.loadMarker("datos/marcador.patt").then(function (id) {
+            patronId = id; ar.trackPatternMarkerId(id, 1);
+            P = new THREE.Matrix4().copy(contexto.getProjectionMatrix()); listo = true; ajustar();
+          }, function () { mostrarError("No se pudo cargar el patrón del código. Recargue la página."); });
+        });
+        window.addEventListener("resize", ajustar);
+        window.addEventListener("orientationchange", function () { setTimeout(ajustar, 300); });
+        requestAnimationFrame(bucle);
+      })
+      .catch(function (e) {
+        var n = e && e.name;
+        mostrarError(n === "NotAllowedError" ? "La página no tiene permiso para usar la cámara. Permítalo en los ajustes del navegador y vuelva a intentarlo." :
+          n === "NotFoundError" ? "No se encontró una cámara en este dispositivo." :
+          "No se pudo abrir la cámara (" + ((e && (e.name || e.message)) || "error") + ").");
+        b.disabled = false; b.textContent = "Iniciar la cámara";
+      });
+  }
+  function mostrarError(t) {
+    errorTxt.textContent = t; errorTxt.hidden = false;
+    if (!vistaRA.hidden) el("nota").textContent = t;
+  }
+  // Al volver a la página (por ejemplo, después de cambiar de aplicación), reanudar la cámara.
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && video && video.paused) { var pr = video.play(); if (pr && pr.catch) pr.catch(function () {}); }
+  });
+  var visto = false;
+  function bucle(t) {
+    requestAnimationFrame(bucle);
+    var dt = sim.ultimo ? Math.min(0.25, Math.max(0, (t - sim.ultimo) / 1000)) : 0; sim.ultimo = t;
+    avanzar(dt);
+    if (video && video.videoWidth && (video.videoWidth + "x" + video.videoHeight) !== dimVideo) ajustar();
+    if (listo && recorte && video.readyState >= 2) {
+      analizar(t);
+      raiz.visible = hayPose && (t - ultimaDeteccion) < MANTENER_MS;
+      if (raiz.visible) window.__ra.detectado++;
+      if (raiz.visible !== visto) {
+        visto = raiz.visible;
+        estadoChip.textContent = visto ? "Código detectado" : "Busque el código";
+        estadoChip.classList.toggle("ok", visto);
+      }
+    }
+    renderer.render(scene, camera);
+  }
+  window.__ra.esquinas = function () {
+    scene.updateMatrixWorld(true);
+    var out = [];
+    [[-0.5, -0.5, 0], [0.5, -0.5, 0], [0.5, 0.5, 0], [-0.5, 0.5, 0], [-0.5, -0.5, 1], [0.5, -0.5, 1], [0.5, 0.5, 1], [-0.5, 0.5, 1]].forEach(function (c) {
+      var v = new THREE.Vector4(c[0], c[1], c[2], 1).applyMatrix4(contenido.matrixWorld).applyMatrix4(camera.projectionMatrix);
+      out.push([v.x / v.w, v.y / v.w]);
+    });
+    return out;
+  };
+  // Ganchos de diagnóstico (para las pruebas automáticas).
+  window.__ra.estado = function () { return { video: dimVideo, vertical: vertical, recorte: recorte, lienzo: renderer && [renderer.domElement.width, renderer.domElement.height, renderer.domElement.style.left, renderer.domElement.style.top, renderer.domElement.style.width, renderer.domElement.style.height] }; };
+
+  el("b-iniciar").addEventListener("click", iniciarRA);
+  el("b-correr").addEventListener("click", function () { sim.programa = true; correr(0); });
+  el("b-pausa").addEventListener("click", function () { if (!sim.b) return; sim.jugando = !sim.jugando; el("b-pausa").textContent = sim.jugando ? "Pausa" : "Continuar"; });
+  chips.forEach(function (b) { b.addEventListener("click", function () { sim.programa = false; correr(+b.dataset.k); }); });
+  el("c-dentro").addEventListener("change", function (e) { if (puntosOut) puntosOut.visible = !e.target.checked; });
+  el("b-salir").addEventListener("click", function () {
+    if (flujo) flujo.getTracks().forEach(function (tr) { tr.stop(); });
+    location.reload();
+  });
+})();
+</script>
+</body>
+</html>
