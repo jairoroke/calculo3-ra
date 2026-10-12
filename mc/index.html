@@ -31,6 +31,8 @@ button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 .ceja { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .banda h1 { margin: 6px 0 2px; font-size: 34px; line-height: 1.02; letter-spacing: -.01em; }
 .banda p.sub { margin: 0; font-weight: 600; }
+/* En pantallas anchas, el texto de la banda se alinea con la columna de contenido. */
+.banda .ceja, .banda h1, .banda .sub { max-width: 604px; margin-left: auto; margin-right: auto; }
 .inicio { max-width: 640px; margin: 0 auto; padding: 18px 18px calc(env(safe-area-inset-bottom, 0px) + 28px); display: grid; gap: 18px; }
 .pasos { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
 .principal { background: var(--ink); color: var(--bg); border-color: var(--ink); font-size: 18px; padding: 15px 22px; justify-self: start; }
