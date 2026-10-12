@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cálculo III en realidad aumentada</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Simulaciones del libro Cálculo III (FES Acatlán, UNAM) que aparecen en 3D sobre el código impreso. Prototipo de prueba.">
+<style>
+:root { --bg: #fffdf7; --ink: #141414; --muted: #5b5a55; --line: #e2ddd0; --yellow: #ffc21a; --red: #c21f1a; --blue: #1f4e9c;
+  --sans: "Source Sans 3", "Source Sans Pro", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+@media (prefers-color-scheme: dark) { :root { --bg: #121211; --ink: #f2efe6; --muted: #aaa69a; --line: #34322d; --red: #ff7a6e; --blue: #8fb2f0; } }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 17px/1.5 var(--sans); -webkit-text-size-adjust: 100%; }
+a { color: var(--blue); }
+.banda { background: var(--yellow); color: #141414; padding: calc(env(safe-area-inset-top, 0px) + 22px) 18px 18px; }
+.banda > div, main { max-width: 680px; margin: 0 auto; }
+.ceja { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+h1 { margin: 6px 0 2px; font-size: 34px; line-height: 1.05; }
+.sub { margin: 0; font-weight: 600; }
+main { padding: 20px 18px calc(env(safe-area-inset-bottom, 0px) + 32px); display: grid; gap: 18px; }
+main > p { margin: 0; }
+.tarjeta { display: grid; gap: 6px; border: 1px solid var(--line); border-left: 6px solid var(--red); border-radius: 8px; padding: 14px 16px; text-decoration: none; color: inherit; }
+.tarjeta b { font-size: 20px; }
+.tarjeta span { color: var(--muted); font-size: 15px; }
+.tarjeta:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+footer { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="banda"><div>
+  <p class="ceja">Jairo Olguín Roque · FES Acatlán, UNAM</p>
+  <h1>Cálculo III en realidad aumentada</h1>
+  <p class="sub">Prototipo de prueba</p>
+</div></header>
+<main>
+  <p>Simulaciones del libro <i>Cálculo III. Funciones reales de un vector</i> que aparecen en 3D sobre el
+    código QR con marco negro impreso en el libro. Escanee el código con la cámara del celular, toque
+    «Iniciar la cámara» y apunte al código.</p>
+  <a class="tarjeta" href="mc/">
+    <b>Monte Carlo del cono de helado</b>
+    <span>Sección 6.6, Ejemplo 6.11 y Tabla 6.1. Programa <code>cap6_monte_carlo.m</code>.</span>
+  </a>
+  <p>¿Sin el libro a la mano? Imprima la <a href="descargas/Tarjeta_RA_Monte_Carlo.pdf">tarjeta de prueba (PDF)</a>,
+    con el código a 6 cm y a 3 cm.</p>
+  <footer>D. R.©, 2026, UNAM - CC BY-NC-ND. Usa three.js y AR.js (licencia MIT), que incluye ARToolKit
+    (LGPL-3.0); vea <a href="lib/licencias/LEEME.md">las licencias</a>. La cámara sólo se usa en el teléfono:
+    no se graba ni se envía nada.</footer>
+</main>
+</body>
+</html>
