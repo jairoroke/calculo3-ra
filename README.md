@@ -3,6 +3,17 @@
 Simulaciones del libro *Cálculo III. Funciones reales de un vector*, de Jairo Olguín Roque
 (FES Acatlán, UNAM), que aparecen en 3D sobre el código QR impreso en el libro.
 
+<!-- demo -->
+## Vista previa
+
+| Sitio | Monte Carlo del cono de helado |
+|---|---|
+| ![Inicio](docs/demo/inicio.jpg) | ![Monte Carlo](docs/demo/mc.jpg) |
+
+La simulación en 3D aparece al apuntar la cámara del celular al código QR del libro o de la tarjeta de prueba.
+
+<!-- /demo -->
+
 - Sitio: <https://jairoroke.github.io/calculo3-ra/>
 - Primera simulación: <https://jairoroke.github.io/calculo3-ra/mc/> (Monte Carlo del cono de helado,
   Sección 6.6, Ejemplo 6.11 y Tabla 6.1; programa `cap6_monte_carlo.m`).
